@@ -1,0 +1,158 @@
+<?php
+
+use PDO;
+
+const DB_NAME = 'contacts.db';
+
+function connectToDatabase() {
+    $pdo = new PDO('sqlite:' . DB_NAME);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    return $pdo;
+}
+
+function run(int $argc, array $argv) {
+    $pdo = connectToDatabase();
+    createTableIfNotExists($pdo);
+
+    if ($argc < 2) {
+        echo "No command provided.\n";
+        return;
+    }
+
+    // Получаем команду из аргументов командной строки
+    $command = strtolower($argv[1]);
+
+    switch ($command) {
+        case "add":
+            addContact($pdo);
+            break;
+        case "list":
+            listContacts($pdo);
+            break;
+        case "search":
+            // Проверяем, что есть третий аргумент (запрос для поиска)
+            if ($argc < 3) {
+                echo "No search query provided.\n";
+                return;
+            }
+            searchContacts($pdo, $argv[2]);
+            break;
+        case "view":
+            // Проверяем, что есть третий аргумент (идентификатор контакта)
+            if ($argc < 3) {
+                echo "No contact ID provided.\n";
+                return;
+            }
+            viewContact($pdo, $argv[2]);
+            break;
+        default:
+            echo "Unknown command. Available commands: add, list, search, view.\n";
+            break;
+    }
+}
+
+function createTableIfNotExists($pdo) {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS contacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        address TEXT NOT NULL
+    )");
+}
+
+function addContact($pdo) {
+    echo "Enter name: ";
+    $name = trim(fgets(STDIN));
+    echo "Enter email: ";
+    $email = trim(fgets(STDIN));
+    echo "Enter phone: ";
+    $phone = trim(fgets(STDIN));
+    echo "Enter address: ";
+    $address = trim(fgets(STDIN));
+
+    $stmt = $pdo->prepare("INSERT INTO contacts (name, email, phone, address) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$name, $email, $phone, $address]);
+
+    echo "Contact added successfully.\n";
+}
+
+function listContacts($pdo) {
+    $stmt = $pdo->query("SELECT id, name, email, phone, address FROM contacts");
+    $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($contacts as $contact) {
+        echo "{$contact['id']}. {$contact['name']} - {$contact['email']} - {$contact['phone']} - {$contact['address']}\n";
+    }
+}
+
+function searchContacts($pdo, $query) {
+    $stmt = $pdo->prepare("SELECT id, name, email, phone, address FROM contacts WHERE name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ?");
+    $stmt->execute(["%$query%", "%$query%", "%$query%", "%$query%"]);
+    $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($contacts)) {
+        echo "No contacts found matching '$query'\n";
+    } else {
+        foreach ($contacts as $contact) {
+            echo "{$contact['id']}. {$contact['name']} - {$contact['email']} - {$contact['phone']} - {$contact['address']}\n";
+        }
+    }
+}
+
+function viewContact($pdo, $id) {
+    $stmt = $pdo->prepare("SELECT id, name, email, phone, address FROM contacts WHERE id = ?");
+    $stmt->execute([$id]);
+    $contact = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($contact) {
+        echo "Name: {$contact['name']}\n";
+        echo "Email: {$contact['email']}\n";
+        echo "Phone: {$contact['phone']}\n";
+        echo "Address: {$contact['address']}\n";
+
+        echo "Do you want to edit or delete this contact? (edit/delete/none): ";
+        $choice = trim(fgets(STDIN));
+
+        if (strtolower($choice) == 'edit') {
+            editContact($pdo, $contact);
+        } elseif (strtolower($choice) == 'delete') {
+            deleteContact($pdo, $id);
+        } 
+    } else {
+        echo "Contact not found.\n";
+    }
+}
+
+function editContact($pdo, $contact) {
+    echo "Enter new name (leave empty to keep the same): ";
+    $name = trim(fgets(STDIN));
+    $name = $name ?: $contact['name'];
+
+    echo "Enter new email (leave empty to keep the same): ";
+    $email = trim(fgets(STDIN));
+    $email = $email ?: $contact['email'];
+
+    echo "Enter new phone (leave empty to keep the same): ";
+    $phone = trim(fgets(STDIN));
+    $phone = $phone ?: $contact['phone'];
+
+    echo "Enter new address (leave empty to keep the same): ";
+    $address = trim(fgets(STDIN));
+    $address = $address ?: $contact['address'];
+
+    $stmt = $pdo->prepare("UPDATE contacts SET name = ?, email = ?, phone = ?, address = ? WHERE id = ?");
+    $stmt->execute([$name, $email, $phone, $address, $contact['id']]);
+
+    echo "Contact updated successfully.\n";
+}
+
+function deleteContact($pdo, $id) {
+    $stmt = $pdo->prepare("DELETE FROM contacts WHERE id = ?");
+    $stmt->execute([$id]);
+
+    echo "Contact deleted successfully.\n";
+}
+
+run($argc, $argv);
+?>
