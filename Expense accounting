@@ -1,0 +1,110 @@
+<?php
+
+function printMenu() {
+    echo "1. Добавить расход\n";
+    echo "2. Показать расходы за день\n";
+    echo "3. Показать расходы за месяц\n";
+    echo "4. Статистика расходов за месяц\n";
+    echo "5. Выход\n";
+    echo "Выберите действие: ";
+}
+
+$spendings = [];
+
+function addSpending(&$spendings, $date, $category, $amount) {
+    $spendings[$date][] = ['category' => $category, 'amount' => $amount];
+}
+
+function showDaySpendings($spendings, $date) {
+    if (!isset($spendings[$date])) {
+        echo "Итого: 0.00\n";
+        return;
+    }
+    $total = array_sum(array_column($spendings[$date], 'amount'));
+    foreach ($spendings[$date] as $spending) {
+        printf("%s: %.2f\n", $spending['category'], $spending['amount']);
+    }
+    printf("Итого: %.2f\n", $total);
+}
+
+function showMonthSpendings($spendings, $month) {
+    $total = 0;
+    foreach ($spendings as $date => $dailySpendings) {
+        if (strpos($date, $month) === 0) {
+            foreach ($dailySpendings as $spending) {
+                printf("%s  – %s: %.2f\n", $date, $spending['category'], $spending['amount']);
+                $total += $spending['amount'];
+            }
+        }
+    }
+    printf("Итого: %.2f\n", $total);
+}
+
+function showMonthStatistics($spendings, $month) {
+    $categories = [];
+    foreach ($spendings as $date => $dailySpendings) {
+        if (strpos($date, $month) === 0) {
+            foreach ($dailySpendings as $spending) {
+                $categories[$spending['category']] = ($categories[$spending['category']] ?? 0) + $spending['amount'];
+            }
+        }
+    }
+    if (empty($categories)) {
+        echo "Итого за месяц: 0.00\n";
+    } else {
+        foreach ($categories as $category => $amount) {
+            printf("%s: %.2f\n", $category, $amount);
+        }
+    }
+}
+
+function run() {
+    global $spendings; 
+    $inp = fopen('php://stdin', 'r'); 
+
+    while (true) {  
+        printMenu(); 
+        [$action] = fscanf($inp, "%d");  
+
+        switch ($action) { 
+            case 1:
+                echo "Введите дату в формате ГГГГ-ММ-ДД: ";
+                [$date] = fscanf($inp, "%s");
+                echo "Введите название: ";
+                [$category] = fscanf($inp, "%s");
+                echo "Введите сумму: ";
+                [$amount] = fscanf($inp, "%f");
+                addSpending($spendings, $date, $category, $amount);
+                echo "Расход успешно добавлен\n";
+                break;
+
+            case 2:
+                echo "Введите дату в формате ГГГГ-ММ-ДД: ";
+                [$date] = fscanf($inp, "%s");
+                showDaySpendings($spendings, $date);
+                break;
+
+            case 3:
+                echo "Введите месяц в формате ГГГГ-ММ: ";
+                [$month] = fscanf($inp, "%s");
+                showMonthSpendings($spendings, $month);
+                break;
+
+            case 4:
+                echo "Введите месяц в формате ГГГГ-ММ: ";
+                [$month] = fscanf($inp, "%s");
+                showMonthStatistics($spendings, $month);
+                break;
+
+            case 5:
+                fclose($inp);
+                return;  
+
+            default:
+                echo "Некорректный пункт меню\n";
+        }
+    }
+}
+
+run();
+?>
