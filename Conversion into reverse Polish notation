@@ -1,0 +1,123 @@
+function toRpn(expression) {
+    const operators = {
+        '+': { priority: 1, associativity: 'left', execute: (x, y) => x + y },
+        '-': { priority: 1, associativity: 'left', execute: (x, y) => x - y },
+        '*': { priority: 2, associativity: 'left', execute: (x, y) => x * y },
+        '/': { priority: 2, associativity: 'left', execute: (x, y) => x / y },
+        '^': { priority: 3, associativity: 'right', execute: (x, y) => Math.pow(x, y) }
+    };
+    const functions = {
+        sin: Math.sin,
+        cos: Math.cos,
+        tan: Math.tan,
+        ctg: (x) => 1 / Math.tan(x),
+        sqrt: Math.sqrt,
+        log: Math.log10,
+        ln: Math.log,
+        exp: Math.exp,
+        abs: Math.abs
+    };
+
+    function tokenize(expression) {
+    const withoutSpaces = expression.replace(/\s+/g, '');
+    const tokens = [];
+    let currentToken = '';
+
+    if (/\d\s+\d/.test(expression)) {
+            throw 'Ошибка: нет операции между числами';
+    }
+
+    for (let i = 0; i < withoutSpaces.length; i++) {
+    const char = withoutSpaces[i];
+    if (char.match(/[a-zA-Z]/)) {
+        if (currentToken.match(/[0-9]/)) {
+            tokens.push(currentToken);
+            currentToken = '';
+        }
+        currentToken += char;
+    } else if (char.match(/[0-9]/)) {
+        if (currentToken.match(/[a-zA-Z]/)) {
+            tokens.push(currentToken);
+            currentToken = '';
+        }
+        currentToken += char;
+    } else {
+        if (currentToken !== '') {
+            tokens.push(currentToken);
+            currentToken = '';
+        }
+        tokens.push(char);
+    }
+}
+
+    if (currentToken !== '') {
+        tokens.push(currentToken);
+    }
+
+    return tokens;
+}
+
+
+    function isNumeric(token) {
+        return !isNaN(parseFloat(token)) && isFinite(token);
+    }
+
+    function infixToRpn(tokens) {
+        const output = [];
+        const stack = [];
+        let parenthesesCount = 0;
+
+        for (const token of tokens) {
+            if (isNumeric(token)) {
+                output.push(parseFloat(token));
+            } else if (token in functions) {
+                stack.push(token);
+            } else if (token in operators) {
+                const o1 = token;
+                let o2 = stack[stack.length - 1];
+                while (o2 in operators &&
+                    ((operators[o1].associativity === 'left' && operators[o1].priority <= operators[o2].priority) ||
+                    (operators[o1].associativity === 'right' && operators[o1].priority < operators[o2].priority))) {
+                    output.push(stack.pop());
+                    o2 = stack[stack.length - 1];
+                }
+                stack.push(o1);
+            } else if (token === '(') {
+                stack.push(token);
+                parenthesesCount++;
+            } else if (token === ')') {
+                while (stack.length > 0 && stack[stack.length - 1] !== '(') {
+                    output.push(stack.pop());
+                }
+                stack.pop();
+                parenthesesCount--;
+                if (stack.length > 0 && stack[stack.length - 1] in functions) {
+                    output.push(stack.pop());
+                }
+            } else if (token === '!') {
+                output.push(token);
+            } else {
+                throw `Ошибка: неизвестный токен '${token}'`;
+            }
+
+            if (parenthesesCount < 0) {
+                throw 'Ошибка: лишняя закрывающая скобка';
+            }
+        }
+
+        if (parenthesesCount > 0) {
+            throw 'Ошибка: не хватает закрывающей скобки';
+        }
+
+        while (stack.length > 0) {
+            output.push(stack.pop());
+        }
+
+        return output;
+    }
+
+    const rpn = tokenize(expression);
+
+
+    return infixToRpn(rpn);
+}
